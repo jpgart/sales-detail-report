@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Retailer Sales Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"/>
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        th {
+            white-space: normal !important;
+            word-break: break-word;
+        }
+        .retailer-col {
+            min-width: 200px;
+            max-width: 600px;
+            white-space: normal;
+        }
+    </style>
+</head>
+<body class="p-8 bg-gray-50">
+    <h2 class="text-2xl font-semibold mb-4">Retailer Sales Report</h2>
+    <!-- Unified filters for all charts and tables -->
+    <div class="flex gap-4 mb-6">
+        <div>
+            <label class="block mb-1 font-bold">Variety</label>
+            <select id="varietySelect" class="rounded p-2 border">
+                {% for v in varieties %}
+                <option value="{{ v }}">{{ v }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block mb-1 font-bold">Packaging Style</label>
+            <select id="packSelect" class="rounded p-2 border">
+                {% for v in pack_styles %}
+                <option value="{{ v }}">{{ v }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <!-- Combo Chart Section (Bar + Line) -->
+    <h3 class="text-lg font-bold mb-2">Top 10 Retailers: Total Cases Sold & Avg Price Per Case</h3>
+    <div class="flex flex-wrap gap-12 mb-8">
+      <div class="flex-1 min-w-[350px]">
+        <canvas id="comboChart" style="max-width:900px; max-height:400px; width:100%; height:400px;"></canvas>
+      </div>
+    </div>
+
+    <!-- First Table: Top 10 by Avg Price -->
+    <h3 class="text-lg font-bold mb-2">Top 10 Retailers by Avg Price Per Case Invc</h3>
+    <table id="topPriceTable" class="display" style="width:100%">
+        <thead>
+            <tr>
+                <th class="retailer-col">Retailer<br>Name</th>
+                <th>Variety</th>
+                <th>Packing<br>Style</th>
+                <th>Total Cases<br>Sold Invc</th>
+                <th>Total Sales<br>Amount</th>
+                <th>Avg Price<br>Per Case Invc</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <!-- Pie Chart Section -->
+    <h3 class="text-lg font-bold mt-8 mb-2">Total Sales By Retailer (USD)</h3>
+    <div class="flex flex-wrap gap-12 mb-8">
+      <div class="flex-1 min-w-[350px]">
+        <canvas id="pieRetailerSales" style="max-width:900px; max-height:900px; width:100%; height:100%;"></canvas>
+      </div>
+    </div>
+
+    <!-- Last Table: Top 10 by Volume -->
+    <h3 class="text-lg font-bold mt-8 mb-2">Top 10 Retailers by Volume (Total Cases Sold Invc)</h3>
+    <table id="topVolumeTable" class="display" style="width:100%">
+        <thead>
+            <tr>
+                <th class="retailer-col">Retailer<br>Name</th>
+                <th>Variety</th>
+                <th>Packing<br>Style</th>
+                <th>Total Cases<br>Sold Invc</th>
+                <th>Total Sales<br>Amount</th>
+                <th>Avg Price<br>Per Case Invc</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+<script>
+const allData = {{ data_js | safe }};
+
+// --- FILTERS ---
+// Returns filtered data for the selected Variety and Packaging Style
+function filterData(variety, packStyle) {
+    return allData.filter(row =>
+        (variety === 'All' || row['Variety'] === variety) &&
+        (packStyle === 'All' || row['Packaging Style'] === packStyle)
+    );
+}
+
+// --- TABLES ---
+function getTopRows(filtered, sortKey, desc=true, topN=10) {
+    let sorted = [...filtered].sort((a, b) => {
+        let va = +((a[sortKey] || '').toString().replace(/[^\d.-]/g, '')) || 0;
+        let vb = +((b[sortKey] || '').toString().replace(/[^\d.-]/g, '')) || 0;
+        return desc ? vb - va : va - vb;
+    });
+    return sorted.slice(0, topN);
+}
+
+function fillTable(tableId, rows) {
+    let table = $(tableId).DataTable();
+    table.clear();
+    for(let row of rows) {
+        // Format Total Sales Amount: $ + thousands separator, no decimals
+        let tsa = row['Total Sales Amount'];
+        let tsaNum = typeof tsa === 'number' ? tsa : Number((tsa||'').toString().replace(/[^\d.-]/g, ''));
+        let tsaFmt = isNaN(tsaNum) ? '' : ('$' + tsaNum.toLocaleString('en-US', {maximumFractionDigits: 0}));
+        table.row.add([
+            row['Retailer Name'],
+            row['Variety'],
+            row['Packaging Style'],
+            row['Total Cases Sold Invc'],
+            tsaFmt,
+            row['Avg Price Per Case Invc']
+        ]);
+    }
+    table.draw();
+}
+
+// --- CHARTS ---
+// Combo chart: Bar = Total Cases Sold, Line = Avg Price Per Case (weighted by cases)
+function buildComboChart(filtered, packStyle) {
+    // Group by Retailer (and optionally by Packaging Style)
+    let grouped = {};
+    filtered.forEach(r => {
+        let retailer = r['Retailer Name'];
+        let cases = +((r['Total Cases Sold Invc']||'').toString().replace(/[^\d.-]/g, '')) || 0;
+        // Parse price robustly: remove $ and thousands, use dot as decimal
+        let price = r['Avg Price Per Case Invc'];
+        if (typeof price === 'string') {
+            price = price.replace(/\$/g, '').replace(/\./g, '').replace(/,/g, '.');
+        }
+        price = parseFloat(price) || 0;
+        // If packStyle is 'All', group only by retailer (sum cases, weighted avg price)
+        // If packStyle is specific, group by retailer+packStyle
+        let groupKey = (packStyle === 'All') ? retailer : retailer + '||' + r['Packaging Style'];
+        if (!grouped[groupKey]) grouped[groupKey] = {retailer, cases: 0, sumPrice: 0, sumCases: 0, pack: r['Packaging Style']};
+        grouped[groupKey].cases += cases;
+        grouped[groupKey].sumPrice += price * cases;
+        grouped[groupKey].sumCases += cases;
+    });
+    // For each retailer, aggregate (if packStyle is All, only one per retailer)
+    let byRetailer = {};
+    Object.values(grouped).forEach(g => {
+        let key = g.retailer;
+        if (!byRetailer[key]) byRetailer[key] = {cases: 0, sumPrice: 0, sumCases: 0};
+        byRetailer[key].cases += g.cases;
+        byRetailer[key].sumPrice += g.sumPrice;
+        byRetailer[key].sumCases += g.sumCases;
+    });
+    let entries = Object.entries(byRetailer).map(([retailer, v]) => ({
+        retailer,
+        cases: v.cases,
+        avgPrice: v.sumCases ? v.sumPrice/v.sumCases : 0
+    }));
+    // Sort by cases desc, top 10
+    entries.sort((a,b) => b.cases - a.cases);
+    let top = entries.slice(0, 10);
+    let retailers = top.map(e => e.retailer);
+    let casesSold = top.map(e => e.cases);
+    let avgPrices = top.map(e => e.avgPrice);
+    if(window.comboChart && typeof window.comboChart.destroy === 'function') window.comboChart.destroy();
+    const ctx = document.getElementById('comboChart').getContext('2d');
+    window.comboChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: retailers,
+            // The line dataset must be last and have a higher order/z so it is drawn above the bars
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'Total Cases Sold (Invc)',
+                    data: casesSold,
+                    yAxisID: 'y',
+                    backgroundColor: '#38bdf8',
+                    order: 1,
+                    z: 1 // Lower z-index
+                },
+                {
+                    type: 'line',
+                    label: 'Avg Price Per Case (Invc)',
+                    data: avgPrices,
+                    yAxisID: 'y1',
+                    borderColor: '#f59e42',
+                    backgroundColor: '#f59e42',
+                    fill: false,
+                    tension: 0.3,
+                    pointRadius: 5,
+                    pointBackgroundColor: '#f59e42',
+                    order: 99, // Highest order
+                    z: 99 // Highest z-index
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        label: function(context) {
+                            if (context.dataset.type === 'bar')
+                                return 'Total Cases Sold: ' + context.parsed.y.toLocaleString('en-US');
+                            else
+                                return 'Avg Price: $' + context.parsed.y.toFixed(2);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    position: 'left',
+                    title: { display: true, text: 'Total Cases Sold' },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString('en-US');
+                        }
+                    },
+                    stacked: false
+                },
+                y1: {
+                    type: 'linear',
+                    position: 'right',
+                    title: { display: true, text: 'Avg Price Per Case (USD)' },
+                    grid: { drawOnChartArea: false },
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toFixed(2);
+                        }
+                    },
+                    stacked: false
+                }
+            }
+        }
+    });
+}
+
+function buildPieRetailer(filtered) {
+    const grouped = {};
+    filtered.forEach(r => {
+        if(!grouped[r['Retailer Name']]) grouped[r['Retailer Name']] = 0;
+        let val = +((r['Total Sales Amount'] || '').toString().replace(/[^\d.-]/g, '')) || 0;
+        grouped[r['Retailer Name']] += val;
+    });
+    // Sort and get top 9, rest as 'Others'
+    let entries = Object.entries(grouped).sort((a, b) => b[1] - a[1]);
+    let top = entries.slice(0, 9);
+    let othersSum = entries.slice(9).reduce((sum, e) => sum + e[1], 0);
+    let labels = top.map(e => e[0]);
+    let data = top.map(e => e[1]);
+    if (entries.length > 10) {
+        labels.push('Others');
+        data.push(othersSum);
+    }
+    let total = data.reduce((a, b) => a + b, 0);
+    if(window.pie1) window.pie1.destroy();
+    const ctx = document.getElementById('pieRetailerSales').getContext('2d');
+    window.pie1 = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Total Sales Amount',
+                data: data,
+                backgroundColor: labels.map((_,i)=>`hsl(${i*33},70%,60%)`)
+            }]
+        },
+        options: {
+            plugins: {
+                legend: { position: 'right' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.label || '';
+                            let value = context.parsed || 0;
+                            let percent = total ? (100 * value / total) : 0;
+                            return label + ': $' + value.toLocaleString('en-US', {maximumFractionDigits: 0}) + ' (' + percent.toFixed(1) + '%)';
+                        }
+                    }
+                }
+            },
+            responsive: true,
+            layout: {
+                padding: 0
+            },
+            radius: '100%',
+        }
+    });
+}
+
+// --- UPDATE ALL ---
+// Updates all tables and charts using the unified filters
+function updateAll() {
+    const v = document.getElementById('varietySelect').value;
+    const p = document.getElementById('packSelect').value;
+    const filtered = filterData(v, p);
+    let topPrice = getTopRows(filtered, 'Avg Price Per Case Invc', true, 10);
+    let topVol = getTopRows(filtered, 'Total Cases Sold Invc', true, 10);
+    fillTable('#topPriceTable', topPrice);
+    fillTable('#topVolumeTable', topVol);
+    buildPieRetailer(filtered);
+    buildComboChart(filtered, p);
+}
+
+// --- INIT ---
+document.addEventListener('DOMContentLoaded', function() {
+    if (!$.fn.DataTable.isDataTable('#topPriceTable')) {
+        $('#topPriceTable').DataTable({ "pageLength": 10, "lengthMenu": [10, 25, 50, 100] });
+    }
+    if (!$.fn.DataTable.isDataTable('#topVolumeTable')) {
+        $('#topVolumeTable').DataTable({ "pageLength": 10, "lengthMenu": [10, 25, 50, 100] });
+    }
+    document.getElementById('varietySelect').addEventListener('change', updateAll);
+    document.getElementById('packSelect').addEventListener('change', updateAll);
+    updateAll();
+});
+</script>
+</body>
+</html>

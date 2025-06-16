@@ -1,0 +1,48 @@
+Lotid
+Lotdescr
+Lotclosedate
+Lothistflag
+Trxtype
+Chargeorderby
+Chargeid
+Chargedescr
+Chargeratetype
+Sourceidx
+Refdate
+Ref
+Descr
+Garunidx
+Recvqnt
+Issueqnt
+Invcqnt
+Rcptqnt
+Saleamt
+Chgqnt
+Chgamt
+Gwrproductdescr
+Cmtyinvc
+Vrtyinvc
+Styleorderby
+Gradeinvc
+Sizeorderby
+Uom
+Fcchargeidx
+Invcicqnt
+Astitle
+Ascompanyname
+Reportdate
+Reportdate.1
+Pricepercase
+Pricepercase Cleaned
+Exporter Clean
+Exporter Country
+Variety
+Packaging Style
+Packaging Detail
+Retailer Name
+Season
+Price Per Case Invc
+Price Per Case Rcpt
+Is Advance
+Is Produce Pay Commission
+Is Retailer Commission

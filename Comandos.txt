@@ -1,0 +1,105 @@
+"""
+# 1. Ve a la carpeta del proyecto
+cd "/Users/jp/Documents/Famus 3.0/famus-report-analysis"
+
+# 2. Activa el ambiente virtual (.venv)
+source .venv/bin/activate
+
+# 3. Instala las librerías en el ambiente virtual
+pip install -r requirements.txt
+
+python src/main.py
+
+"""
+# Ejecuta esto en un script o en la consola interactiva de Python
+from src.reporting import generate_executive_summary_report
+
+# Cambia el string por la temporada que deseas (debe existir el CSV correspondiente)
+generate_executive_summary_report('2024-2025')
+
+from src.reporting import generate_executive_summary_report
+generate_executive_summary_report('2024-2025')
+
+python src/main_html.py
+
+analysisv2
+
+python src/analysisv2.py "2023-2024,2024-2025"
+
+
+main
+python3 src/main.py --season 2024-2025
+
+
+html
+cd "reports/html_reports/2025-06-16_ReactReport"
+cd "/Users/jp/Documents/Famus 3.0/famus-report-analysis/reports/html_reports/2025-06-16_ReactReport"
+
+npm install
+npm run build
+npm start
+
+# ¿Cuándo usar npm start y npm run build?
+
+# - Si quieres trabajar en modo desarrollo y ver los cambios en vivo:
+#   Ejecuta:
+#   npm start
+#   Esto levanta el servidor de desarrollo y recarga automáticamente los cambios. No necesitas ejecutar npm run build para esto.
+
+# - Si quieres generar los archivos finales optimizados para producción (por ejemplo, para subirlos a un servidor o abrir el HTML fuera del entorno de desarrollo):
+#   Ejecuta:
+#   npm run build
+#   Esto crea la carpeta build (o dist) con los archivos listos para producción.
+
+# Resumen:
+# - Para desarrollo: solo npm start
+# - Para producción: npm run build
+
+# Publicar el reporte en GitHub Pages (opción recomendada)
+
+1. Crea una cuenta en https://github.com si no tienes una.
+
+2. Crea un nuevo repositorio (puede ser público o privado, pero el sitio será público).
+
+3. En tu terminal, navega a la carpeta raíz del proyecto React:
+cd "/Users/jp/Documents/Famus 3.0/famus-report-analysis/reports/html_reports/2025-06-16_ReactReport"
+
+4. Inicializa git (si no lo has hecho):
+git init
+git remote add origin https://github.com/usuario/nombre-repo.git
+
+5. Agrega todos los archivos y haz el primer commit:
+git add .
+git commit -m "Primer commit del reporte"
+
+git branch -M main
+git push -u origin main
+
+6. Ejecuta el build para producción:
+npm run build
+
+7. Instala el paquete gh-pages (solo la primera vez):
+npm install --save gh-pages
+
+8. Abre package.json y agrega estas líneas:
+
+En "scripts":
+  "predeploy": "npm run build",
+  "deploy": "gh-pages -d build"
+
+Y agrega (si no existe) en la raíz del package.json:
+  "homepage": "https://usuario.github.io/nombre-repo"
+
+9. Publica el sitio ejecutando:
+npm run deploy
+
+10. Accede a la URL:
+https://usuario.github.io/nombre-repo
+
+11. Puedes insertar esa URL en Google Sites usando el widget de "Insertar" → "Por URL".
+
+# Reemplaza "usuario" y "nombre-repo" por tu usuario y nombre de repositorio en GitHub.
+
+Matar terminal
+Ctrl + C
+
