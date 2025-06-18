@@ -1,4 +1,21 @@
 """
+# Tips de personalización visual para el reporte en Google Sites y React
+
+- Puedes ajustar el tamaño del reporte embebido (iframe) directamente en Google Sites arrastrando los bordes o editando las propiedades de ancho/alto.
+- Si el reporte se ve cortado, aumenta la altura del iframe o habilita el scroll vertical en Google Sites.
+- Para cambiar el color de fondo de la sección donde está el reporte, usa las opciones de diseño de Google Sites.
+- Si quieres que el reporte combine con un fondo oscuro o claro, puedes modificar los estilos globales en el archivo CSS principal del proyecto React (por ejemplo, App.css o index.css).
+- Para ocultar elementos no deseados (como barras superiores de GitHub Pages), puedes agregar reglas CSS en tu proyecto React, por ejemplo:
+  ```css
+  #gh-pages-navbar { display: none !important; }
+  ```
+- Si necesitas un tamaño fijo o máximo para el reporte, puedes establecerlo en el CSS del proyecto React:
+  ```css
+  #root { max-width: 1200px; margin: auto; }
+  ```
+- Recuerda que cualquier cambio visual en el código React requiere volver a hacer `npm run build` y `npm run deploy` para que se refleje online.
+- Si tienes un diseño específico en mente, puedes compartir un ejemplo y adaptar el CSS o los componentes del reporte según tus necesidades.
+
 # 1. Ve a la carpeta del proyecto
 cd "/Users/jp/Documents/Famus 3.0/famus-report-analysis"
 
@@ -99,6 +116,16 @@ https://usuario.github.io/nombre-repo
 11. Puedes insertar esa URL en Google Sites usando el widget de "Insertar" → "Por URL".
 
 # Reemplaza "usuario" y "nombre-repo" por tu usuario y nombre de repositorio en GitHub.
+
+# ¿Tengo que ejecutar siempre npm run deploy para que el reporte funcione?
+
+No. Solo necesitas ejecutar `npm run deploy` cuando quieras actualizar el reporte publicado en GitHub Pages (por ejemplo, si cambias el código o los datos).
+
+Una vez desplegado, el reporte queda disponible en la URL pública (por ejemplo, https://jpgart.github.io/sales-detail-report) y cualquier persona podrá verlo sin que tu Mac esté encendida ni ejecutando nada.
+
+- Ejecuta `npm run deploy` solo cuando quieras subir una nueva versión.
+- El reporte queda online y accesible 24/7 desde la URL de GitHub Pages.
+- Puedes insertar esa URL en Google Sites o compartirla con quien quieras.
 
 Matar terminal
 Ctrl + C

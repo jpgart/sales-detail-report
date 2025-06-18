@@ -80,14 +80,14 @@ const KPICards = ({ data }) => {
   const uniqueExporters = new Set(filtered.map(r => r['Exporter Clean'])).size;
   const uniqueVarieties = new Set(filtered.map(r => r['Variety'])).size;
   if (!data.length) return null;
-  // Paleta personalizada
+  // Paleta unificada: todos los KPIs con mismo fondo y letras
   const kpis = [
-    { label: 'Total Sales', value: `$${totalSales.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, color: 'bg-[#3d5a80] text-white' },
-    { label: 'Total Quantity', value: formatNumber(totalQty), color: 'bg-[#98c1d9] text-[#293241]' },
-    { label: 'Avg. Four Star Price', value: formatNumber(avgPrice, true), color: 'bg-[#e0fbfc] text-[#293241]' },
-    { label: 'Retailers', value: uniqueRetailers, color: 'bg-[#ee6c4d] text-white' },
-    { label: 'Exporters', value: uniqueExporters, color: 'bg-[#293241] text-white' },
-    { label: 'Varieties', value: uniqueVarieties, color: 'bg-[#98c1d9] text-[#293241]' },
+    { label: 'Total Sales', value: `$${totalSales.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, color: 'bg-[#E0FBFC] text-[#3D5A80]' },
+    { label: 'Total Quantity', value: formatNumber(totalQty), color: 'bg-[#E0FBFC] text-[#3D5A80]' },
+    { label: 'Avg. Four Star Price', value: formatNumber(avgPrice, true), color: 'bg-[#E0FBFC] text-[#3D5A80]' },
+    { label: 'Retailers', value: uniqueRetailers, color: 'bg-[#E0FBFC] text-[#3D5A80]' },
+    { label: 'Exporters', value: uniqueExporters, color: 'bg-[#E0FBFC] text-[#3D5A80]' },
+    { label: 'Varieties', value: uniqueVarieties, color: 'bg-[#E0FBFC] text-[#3D5A80]' },
   ];
   return (
     <div className="flex flex-col items-center my-10">
@@ -104,6 +104,327 @@ const KPICards = ({ data }) => {
             <div className="text-base font-medium tracking-wide text-center whitespace-nowrap">{kpi.label}</div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+};
+
+// Key Market Insights Component with Collapsible Sections
+const KeyMarketInsights = ({ data }) => {
+  const [expandedSections, setExpandedSections] = useState({
+    leadership: false,
+    risks: false,
+    premium: false,
+    commodity: false,
+    coverage: false
+  });
+
+  const toggleSection = (sectionName) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionName]: !prev[sectionName]
+    }));
+  };
+
+  // Generate insights categorized by section
+  const generateCategorizedInsights = () => {
+    const allExporters = getUnique(data, 'Exporter Clean').filter(Boolean);
+    const allRetailers = getUnique(data, 'Retailer Name').filter(Boolean);
+    
+    const categorized = {
+      leadership: [],
+      risks: [],
+      premium: [],
+      commodity: [],
+      coverage: []
+    };
+
+    if (!data.length) return categorized;
+
+    // Calculate analysis data
+    const exportersAnalysis = allExporters.map(exporter => {
+      const exporterData = data.filter(d => d['Exporter Clean'] === exporter);
+      const totalSales = exporterData.reduce((sum, r) => sum + Number(r['Sales Amount'] || 0), 0);
+      const retailers = getUnique(exporterData, 'Retailer Name').filter(Boolean);
+      
+      const retailerStats = retailers.map(retailer => {
+        const retailerData = exporterData.filter(d => d['Retailer Name'] === retailer);
+        const sales = retailerData.reduce((sum, r) => sum + Number(r['Sales Amount'] || 0), 0);
+        const avgPrice = retailerData.length 
+          ? retailerData.map(r => Number(r['Price Four Star'] || 0)).filter(Boolean).reduce((a, b) => a + b, 0) / retailerData.filter(r => Number(r['Price Four Star'])).length
+          : 0;
+        
+        return {
+          retailer,
+          sales,
+          avgPrice,
+          percentage: totalSales ? (sales / totalSales * 100) : 0
+        };
+      }).sort((a, b) => b.sales - a.sales);
+
+      return { exporter, totalSales, topRetailers: retailerStats.slice(0, 5) };
+    }).sort((a, b) => b.totalSales - a.totalSales);
+
+    // 🥇 LEADERSHIP INSIGHTS
+    if (exportersAnalysis.length > 0) {
+      const marketLeader = exportersAnalysis[0];
+      const totalMarketSales = data.reduce((sum, r) => sum + Number(r['Sales Amount'] || 0), 0);
+      const leaderShare = totalMarketSales ? (marketLeader.totalSales / totalMarketSales * 100) : 0;
+      
+      categorized.leadership.push(`${marketLeader.exporter} leads the market with ${leaderShare.toFixed(1)}% of total sales ($${marketLeader.totalSales.toLocaleString('en-US', { maximumFractionDigits: 0 })})`);
+      
+      // Top performers concentration
+      const top3Share = exportersAnalysis.slice(0, 3).reduce((sum, e) => sum + e.totalSales, 0);
+      const top3Percentage = totalMarketSales ? (top3Share / totalMarketSales * 100) : 0;
+      if (top3Percentage > 60) {
+        categorized.leadership.push(`Market concentration: Top 3 exporters control ${top3Percentage.toFixed(1)}% of total sales`);
+      }
+    }
+
+    // Retailer demand leadership
+    const retailerDemand = allRetailers.map(retailer => {
+      const retailerData = data.filter(d => d['Retailer Name'] === retailer);
+      const totalVolume = retailerData.reduce((sum, r) => sum + Number(r['Sale Quantity'] || 0), 0);
+      return { retailer, totalVolume };
+    }).sort((a, b) => b.totalVolume - a.totalVolume);
+    
+    if (retailerDemand[0]) {
+      const totalVolume = retailerDemand.reduce((sum, r) => sum + r.totalVolume, 0);
+      const topRetailerShare = totalVolume ? (retailerDemand[0].totalVolume / totalVolume * 100) : 0;
+      categorized.leadership.push(`${retailerDemand[0].retailer} represents the largest share of demand with ${topRetailerShare.toFixed(1)}% of total volume`);
+    }
+
+    // ⚠️ RISKS & CONCENTRATION
+    exportersAnalysis.forEach(exporterData => {
+      if (exporterData.topRetailers && exporterData.topRetailers.length > 0) {
+        const topRetailer = exporterData.topRetailers[0];
+        if (topRetailer.percentage > 60) {
+          categorized.risks.push(`${exporterData.exporter} has high dependency risk: ${topRetailer.percentage.toFixed(1)}% of sales from ${topRetailer.retailer}`);
+        }
+      }
+    });
+
+    // Retailer dependency on exporters
+    allRetailers.forEach(retailer => {
+      const retailerData = data.filter(d => d['Retailer Name'] === retailer);
+      const exporterSales = allExporters.map(exporter => {
+        const exporterData = retailerData.filter(d => d['Exporter Clean'] === exporter);
+        const sales = exporterData.reduce((sum, r) => sum + Number(r['Sales Amount'] || 0), 0);
+        return { exporter, sales };
+      }).filter(e => e.sales > 0).sort((a, b) => b.sales - a.sales);
+      
+      if (exporterSales.length > 0) {
+        const totalRetailerSales = exporterSales.reduce((sum, e) => sum + e.sales, 0);
+        const topExporterShare = totalRetailerSales ? (exporterSales[0].sales / totalRetailerSales * 100) : 0;
+        if (topExporterShare > 60) {
+          categorized.risks.push(`${retailer} depends heavily on ${exporterSales[0].exporter} for ${topExporterShare.toFixed(1)}% of purchases`);
+        }
+      }
+    });
+
+    // 💰 PREMIUM POSITIONING
+    const allPrices = data.map(r => Number(r['Price Four Star'] || 0)).filter(p => p > 0);
+    const avgMarketPrice = allPrices.length ? allPrices.reduce((a, b) => a + b, 0) / allPrices.length : 0;
+    
+    // Premium exporters (>$25)
+    exportersAnalysis.forEach(exporterData => {
+      if (exporterData.topRetailers && exporterData.topRetailers.length > 0) {
+        const avgExporterPrice = exporterData.topRetailers.reduce((sum, r) => sum + r.avgPrice, 0) / exporterData.topRetailers.length;
+        if (avgExporterPrice > 25) {
+          categorized.premium.push(`${exporterData.exporter} maintains premium pricing at $${avgExporterPrice.toFixed(2)} average`);
+        }
+      }
+    });
+
+    // Premium retailers (above market average)
+    allRetailers.forEach(retailer => {
+      const retailerData = data.filter(d => d['Retailer Name'] === retailer);
+      const retailerPrices = retailerData.map(r => Number(r['Price Four Star'] || 0)).filter(p => p > 0);
+      if (retailerPrices.length > 0) {
+        const avgRetailerPrice = retailerPrices.reduce((a, b) => a + b, 0) / retailerPrices.length;
+        if (avgRetailerPrice > avgMarketPrice * 1.2) { // 20% above market
+          categorized.premium.push(`${retailer} pays premium prices ($${avgRetailerPrice.toFixed(2)}) indicating high-value positioning`);
+        }
+      }
+    });
+
+    // Premium varieties
+    const varieties = getUnique(data, 'Variety').filter(Boolean);
+    const varietyPrices = varieties.map(variety => {
+      const varietyData = data.filter(d => d['Variety'] === variety);
+      const prices = varietyData.map(r => Number(r['Price Four Star'] || 0)).filter(p => p > 0);
+      const avgPrice = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
+      return { variety, avgPrice };
+    }).sort((a, b) => b.avgPrice - a.avgPrice);
+    
+    if (varietyPrices[0] && varietyPrices[0].avgPrice > 0) {
+      categorized.premium.push(`${varietyPrices[0].variety} commands highest pricing at $${varietyPrices[0].avgPrice.toFixed(2)} average`);
+    }
+
+    // 📉 COMMODITY PATTERNS
+    // Low price exporters
+    exportersAnalysis.forEach(exporterData => {
+      if (exporterData.topRetailers && exporterData.topRetailers.length > 0) {
+        const avgExporterPrice = exporterData.topRetailers.reduce((sum, r) => sum + r.avgPrice, 0) / exporterData.topRetailers.length;
+        if (avgExporterPrice < avgMarketPrice * 0.8 && avgExporterPrice > 0) { // 20% below market
+          categorized.commodity.push(`${exporterData.exporter} focuses on commodity pricing at $${avgExporterPrice.toFixed(2)} average`);
+        }
+      }
+    });
+
+    // Low price retailers (≤$10)
+    allRetailers.forEach(retailer => {
+      const retailerData = data.filter(d => d['Retailer Name'] === retailer);
+      const retailerPrices = retailerData.map(r => Number(r['Price Four Star'] || 0)).filter(p => p > 0);
+      if (retailerPrices.length > 0) {
+        const avgRetailerPrice = retailerPrices.reduce((a, b) => a + b, 0) / retailerPrices.length;
+        if (avgRetailerPrice <= 10) {
+          categorized.commodity.push(`${retailer} pursues volume strategy with low prices ($${avgRetailerPrice.toFixed(2)} average)`);
+        }
+      }
+    });
+
+    // 📦 VOLUME & COVERAGE
+    // Exporter market reach
+    exportersAnalysis.forEach(exporterData => {
+      const exporterRetailers = getUnique(data.filter(d => d['Exporter Clean'] === exporterData.exporter), 'Retailer Name').filter(Boolean);
+      if (exporterRetailers.length >= 5) {
+        categorized.coverage.push(`${exporterData.exporter} has broad reach, selling to ${exporterRetailers.length} unique retailers`);
+      }
+    });
+
+    // Retailer diversification
+    allRetailers.forEach(retailer => {
+      const retailerExporters = getUnique(data.filter(d => d['Retailer Name'] === retailer), 'Exporter Clean').filter(Boolean);
+      if (retailerExporters.length >= 3) {
+        categorized.coverage.push(`${retailer} diversifies supply across ${retailerExporters.length} different exporters`);
+      }
+    });
+
+    return categorized;
+  };
+
+  const categorizedInsights = generateCategorizedInsights();
+  
+  if (!data.length) return null;
+
+  return (
+    <div className="my-8 bg-[#F9F6F4] rounded-2xl p-6 shadow-md border border-[#98C1D9]">
+      <h3 className="text-2xl font-bold mb-6 text-[#293241]">🔍 Key Market Insights</h3>
+      
+      {/* 🥇 Market Share & Leadership */}
+      <div className="mb-4">
+        <button 
+          onClick={() => toggleSection('leadership')}
+          className="w-full text-left flex items-center justify-between p-3 bg-[#E0FBFC] rounded-lg hover:bg-[#D4F1F4] transition-colors"
+        >
+          <h4 className="text-lg font-bold text-[#3D5A80]">🥇 Market Share & Leadership</h4>
+          <span className="text-[#3D5A80]">{expandedSections.leadership ? '▼' : '▶'}</span>
+        </button>
+        {expandedSections.leadership && (
+          <div className="mt-2 pl-4">
+            <ul className="space-y-1">
+              {categorizedInsights.leadership.map((insight, idx) => (
+                <li key={idx} className="flex items-start">
+                  <span className="text-[#EE6C4D] mr-2">•</span>
+                  <span className="text-[#293241]">{insight}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* ⚠️ Dependency & Concentration Risks */}
+      <div className="mb-4">
+        <button 
+          onClick={() => toggleSection('risks')}
+          className="w-full text-left flex items-center justify-between p-3 bg-[#FEE2E2] rounded-lg hover:bg-[#FECACA] transition-colors"
+        >
+          <h4 className="text-lg font-bold text-[#991B1B]">⚠️ Dependency & Concentration Risks</h4>
+          <span className="text-[#991B1B]">{expandedSections.risks ? '▼' : '▶'}</span>
+        </button>
+        {expandedSections.risks && (
+          <div className="mt-2 pl-4">
+            <ul className="space-y-1">
+              {categorizedInsights.risks.map((insight, idx) => (
+                <li key={idx} className="flex items-start">
+                  <span className="text-[#DC2626] mr-2">•</span>
+                  <span className="text-[#293241]">{insight}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* 💰 Premium Price Positioning */}
+      <div className="mb-4">
+        <button 
+          onClick={() => toggleSection('premium')}
+          className="w-full text-left flex items-center justify-between p-3 bg-[#F0FDF4] rounded-lg hover:bg-[#DCFCE7] transition-colors"
+        >
+          <h4 className="text-lg font-bold text-[#166534]">💰 Premium Price Positioning</h4>
+          <span className="text-[#166534]">{expandedSections.premium ? '▼' : '▶'}</span>
+        </button>
+        {expandedSections.premium && (
+          <div className="mt-2 pl-4">
+            <ul className="space-y-1">
+              {categorizedInsights.premium.map((insight, idx) => (
+                <li key={idx} className="flex items-start">
+                  <span className="text-[#059669] mr-2">•</span>
+                  <span className="text-[#293241]">{insight}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* 📉 Low Price / Commodity Patterns */}
+      <div className="mb-4">
+        <button 
+          onClick={() => toggleSection('commodity')}
+          className="w-full text-left flex items-center justify-between p-3 bg-[#FEF3C7] rounded-lg hover:bg-[#FDE68A] transition-colors"
+        >
+          <h4 className="text-lg font-bold text-[#92400E]">📉 Low Price / Commodity Patterns</h4>
+          <span className="text-[#92400E]">{expandedSections.commodity ? '▼' : '▶'}</span>
+        </button>
+        {expandedSections.commodity && (
+          <div className="mt-2 pl-4">
+            <ul className="space-y-1">
+              {categorizedInsights.commodity.map((insight, idx) => (
+                <li key={idx} className="flex items-start">
+                  <span className="text-[#D97706] mr-2">•</span>
+                  <span className="text-[#293241]">{insight}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* 📦 Volume & Coverage */}
+      <div className="mb-4">
+        <button 
+          onClick={() => toggleSection('coverage')}
+          className="w-full text-left flex items-center justify-between p-3 bg-[#F3E8FF] rounded-lg hover:bg-[#E9D5FF] transition-colors"
+        >
+          <h4 className="text-lg font-bold text-[#6B21A8]">📦 Volume & Coverage</h4>
+          <span className="text-[#6B21A8]">{expandedSections.coverage ? '▼' : '▶'}</span>
+        </button>
+        {expandedSections.coverage && (
+          <div className="mt-2 pl-4">
+            <ul className="space-y-1">
+              {categorizedInsights.coverage.map((insight, idx) => (
+                <li key={idx} className="flex items-start">
+                  <span className="text-[#7C3AED] mr-2">•</span>
+                  <span className="text-[#293241]">{insight}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -600,32 +921,416 @@ const PriceHistory = ({ data, groupKey }) => {
   );
 };
 
-// Índice de navegación mejorado con paleta
-const navColors = ["bg-[#3d5a80] text-white","bg-[#98c1d9] text-[#293241]","bg-[#e0fbfc] text-[#293241]","bg-[#ee6c4d] text-white","bg-[#293241] text-white"];
+// Índice de navegación unificado con fondo #98C1D9 y letras #3D5A80
 const SectionIndex = ({ refs }) => (
   <nav className="my-8 flex flex-wrap gap-4 text-lg font-bold justify-center">
     {Object.entries(refs).map(([k, ref], i) => (
       <button
         key={k}
         onClick={() => ref.current.scrollIntoView({ behavior: 'smooth' })}
-        className={`px-4 py-2 rounded transition ${navColors[i % navColors.length]}`}
+        className="px-4 py-2 rounded transition bg-[#98C1D9] text-[#3D5A80] hover:bg-[#7DB0D1]"
       >
-        {k.replace('KPIs', 'Scorecards')
-          .replace('Heatmap Retailer vs Variety', 'Heatmap: Retailer vs Variety')
-          .replace('Heatmap Exporter vs Retailer', 'Pivot Table: Exporter vs Retailer')
-          .replace('Ranking Retailers', 'Top Retailers by Sales')
-          .replace('Ranking Exporters', 'Top Exporters by Sales')
+        {k.replace('KPIs', 'KPIs')
+          .replace('Key Insights', 'Key Insights')
           .replace('Exporter Comparator', 'Exporter Comparator')
+          .replace('Sales by Variety', 'Sales by Variety')
+          .replace('Sales Timeline', 'Sales Timeline')
           .replace('Price History Retailer', 'Price History (Retailer)')
           .replace('Price History Exporter', 'Price History (Exporter)')
-          .replace('Parte 1: Filtros y Gráficos', 'Part 1: Filters and Main Charts')
-          .replace('Parte 2: Sales by Variety', 'Part 2: Sales by Variety')
-          .replace('Parte 3: Sales Timeline', 'Part 3: Sales Timeline')
-          .replace('Parte 4: Price Alerts', 'Part 4: Price Alerts')}
+          .replace('Heatmap Retailer vs Variety', 'Heatmap: Retailer / Variety')
+          .replace('Heatmap Exporter vs Retailer', 'Heatmap: Exporter / Retailer')
+          .replace('Exporter-Retailer Analysis', 'Top 5 Analysis')
+          .replace('Ranking Retailers', 'Top Retailers by Sales')
+          .replace('Ranking Exporters', 'Top Exporters by Sales')
+          .replace('Sales by Retailer/Exporter/Variety/Size', 'Filtered Sales Analysis')
+          .replace('Price Alerts by Variety', 'Price Alerts')}
       </button>
     ))}
   </nav>
 );
+
+// Automatic Analysis: Top 5 Retailers per Exporter with Insights
+const ExporterRetailerAnalysis = ({ data }) => {
+  // Calculate top retailers per exporter
+  const getTopRetailersPerExporter = () => {
+    const exporters = getUnique(data, 'Exporter Clean').filter(Boolean);
+    
+    return exporters.map(exporter => {
+      const exporterData = data.filter(d => d['Exporter Clean'] === exporter);
+      const retailers = getUnique(exporterData, 'Retailer Name').filter(Boolean);
+      
+      // Calculate TOTAL sales for the exporter (all retailers)
+      const exporterTotalSales = exporterData.reduce((sum, r) => sum + Number(r['Sales Amount'] || 0), 0);
+      
+      const allRetailerStats = retailers.map(retailer => {
+        const retailerData = exporterData.filter(d => d['Retailer Name'] === retailer);
+        const totalSales = retailerData.reduce((sum, r) => sum + Number(r['Sales Amount'] || 0), 0);
+        const totalQuantity = retailerData.reduce((sum, r) => sum + Number(r['Sale Quantity'] || 0), 0);
+        const avgPrice = retailerData.length 
+          ? retailerData.map(r => Number(r['Price Four Star'] || 0)).filter(Boolean).reduce((a, b) => a + b, 0) / retailerData.filter(r => Number(r['Price Four Star'])).length
+          : 0;
+        const varietyCount = new Set(retailerData.map(r => r['Variety'])).size;
+        
+        return {
+          retailer,
+          totalSales,
+          totalQuantity,
+          avgPrice,
+          varietyCount,
+          percentage: exporterTotalSales ? (totalSales / exporterTotalSales * 100) : 0
+        };
+      }).sort((a, b) => b.totalSales - a.totalSales);
+      
+      const topRetailers = allRetailerStats.slice(0, 5);
+      
+      // Filter worst retailers to only include those with sales > $1
+      const validWorstRetailers = allRetailerStats.filter(retailer => retailer.totalSales > 1);
+      const worstRetailers = validWorstRetailers.slice(-5).reverse(); // Get last 5 and reverse to show worst first
+      
+      // Get odd retailers (sales amount <= $0)
+      const oddRetailers = allRetailerStats.filter(retailer => retailer.totalSales <= 0);
+      
+      return { exporter, topRetailers, worstRetailers, oddRetailers, totalSales: exporterTotalSales };
+    }).sort((a, b) => b.totalSales - a.totalSales);
+  };
+
+  // Generate automatic insights
+  const generateInsights = (analysisData) => {
+    const insights = [];
+    
+    // Check if we have data
+    if (!analysisData || analysisData.length === 0) {
+      insights.push('No data available for analysis. Please upload a CSV file to see insights.');
+      return insights;
+    }
+    
+    // Calculate market totals
+    const totalMarketSales = analysisData.reduce((sum, e) => sum + e.totalSales, 0);
+    const allRetailers = getUnique(data, 'Retailer Name').filter(Boolean);
+    const allExporters = getUnique(data, 'Exporter Clean').filter(Boolean);
+    
+    // 🥇 MARKET SHARE & LEADERSHIP
+    insights.push('🥇 Market Share & Leadership');
+    
+    const topExporter = analysisData[0];
+    if (topExporter && topExporter.exporter) {
+      const marketShare = totalMarketSales ? (topExporter.totalSales / totalMarketSales * 100) : 0;
+      insights.push(`Market Leader: ${topExporter.exporter} dominates with ${marketShare.toFixed(1)}% market share ($${topExporter.totalSales.toLocaleString()})`);
+    }
+    
+    // Top 3 Exporters concentration
+    const top3Sales = analysisData.slice(0, 3).reduce((sum, e) => sum + e.totalSales, 0);
+    const top3Concentration = totalMarketSales ? (top3Sales / totalMarketSales * 100) : 0;
+    insights.push(`Top 3 Exporters account for ${top3Concentration.toFixed(1)}% of total sales → ${top3Concentration > 70 ? 'high market concentration' : 'moderate market concentration'}`);
+    
+    // Largest retailer by demand
+    const retailerDemand = allRetailers.map(retailer => {
+      const retailerData = data.filter(d => d['Retailer Name'] === retailer);
+      const totalVolume = retailerData.reduce((sum, r) => sum + Number(r['Sale Quantity'] || 0), 0);
+      return { retailer, totalVolume };
+    }).sort((a, b) => b.totalVolume - a.totalVolume);
+    
+    if (retailerDemand[0]) {
+      const totalVolume = retailerDemand.reduce((sum, r) => sum + r.totalVolume, 0);
+      const topRetailerShare = totalVolume ? (retailerDemand[0].totalVolume / totalVolume * 100) : 0;
+      insights.push(`${retailerDemand[0].retailer} represents the largest share of demand, receiving ${topRetailerShare.toFixed(1)}% of total volume`);
+    }
+    
+    // Retailers that buy from 75%+ of exporters (market knowledge)
+    const retailersWithBroadCoverage = allRetailers.filter(retailer => {
+      const retailerExporters = getUnique(data.filter(d => d['Retailer Name'] === retailer), 'Exporter Clean').filter(Boolean);
+      return retailerExporters.length >= (allExporters.length * 0.75);
+    });
+    retailersWithBroadCoverage.forEach(retailer => {
+      const exporterCount = getUnique(data.filter(d => d['Retailer Name'] === retailer), 'Exporter Clean').filter(Boolean).length;
+      insights.push(`${retailer} has broad market knowledge, sourcing from ${exporterCount}/${allExporters.length} exporters (${((exporterCount/allExporters.length)*100).toFixed(0)}%)`);
+    });
+    
+    insights.push(''); // Empty line separator
+    
+    // ⚠️ DEPENDENCY & CONCENTRATION RISKS
+    insights.push('⚠️ Dependency & Concentration Risks');
+    
+    // High concentration exporters (>60%)
+    const highConcentrationExporters = analysisData.filter(exporterData => {
+      if (!exporterData.topRetailers || exporterData.topRetailers.length === 0) return false;
+      return exporterData.topRetailers[0].percentage > 60;
+    });
+    
+    highConcentrationExporters.forEach(exporterData => {
+      const topRetailer = exporterData.topRetailers[0];
+      insights.push(`${exporterData.exporter} has more than 60% of sales concentrated in ${topRetailer.retailer} (${topRetailer.percentage.toFixed(1)}%) → high dependency risk`);
+    });
+    
+    // Retailer dependency on exporters
+    allRetailers.forEach(retailer => {
+      const retailerData = data.filter(d => d['Retailer Name'] === retailer);
+      const exporterSales = allExporters.map(exporter => {
+        const exporterData = retailerData.filter(d => d['Exporter Clean'] === exporter);
+        const sales = exporterData.reduce((sum, r) => sum + Number(r['Sales Amount'] || 0), 0);
+        return { exporter, sales };
+      }).filter(e => e.sales > 0).sort((a, b) => b.sales - a.sales);
+      
+      if (exporterSales.length > 0) {
+        const totalRetailerSales = exporterSales.reduce((sum, e) => sum + e.sales, 0);
+        const topExporterShare = totalRetailerSales ? (exporterSales[0].sales / totalRetailerSales * 100) : 0;
+        if (topExporterShare > 60) {
+          insights.push(`${retailer} depends mainly on ${exporterSales[0].exporter}, sourcing ${topExporterShare.toFixed(1)}% of purchases from them`);
+        }
+      }
+    });
+    
+    insights.push(''); // Empty line separator
+    
+    // 💰 PREMIUM PRICE POSITIONING
+    insights.push('💰 Premium Price Positioning');
+    
+    // Premium exporters (>$25)
+    analysisData.forEach(exporterData => {
+      if (!exporterData || !exporterData.topRetailers || exporterData.topRetailers.length === 0) return;
+      const avgExporterPrice = exporterData.topRetailers.reduce((sum, r) => sum + r.avgPrice, 0) / exporterData.topRetailers.length;
+      if (avgExporterPrice > 25) {
+        insights.push(`${exporterData.exporter} maintains a high average price ($${avgExporterPrice.toFixed(2)}) compared to peers`);
+      }
+    });
+    
+    // Premium retailers (above average price)
+    const allPrices = data.map(r => Number(r['Price Four Star'] || 0)).filter(p => p > 0);
+    const avgMarketPrice = allPrices.length ? allPrices.reduce((a, b) => a + b, 0) / allPrices.length : 0;
+    
+    allRetailers.forEach(retailer => {
+      const retailerData = data.filter(d => d['Retailer Name'] === retailer);
+      const retailerPrices = retailerData.map(r => Number(r['Price Four Star'] || 0)).filter(p => p > 0);
+      if (retailerPrices.length > 0) {
+        const avgRetailerPrice = retailerPrices.reduce((a, b) => a + b, 0) / retailerPrices.length;
+        if (avgRetailerPrice > avgMarketPrice * 1.2) { // 20% above market
+          insights.push(`${retailer} pays above-average prices ($${avgRetailerPrice.toFixed(2)}) → indicates premium relationship`);
+        }
+      }
+    });
+    
+    // Premium varieties
+    const varieties = getUnique(data, 'Variety').filter(Boolean);
+    const varietyPrices = varieties.map(variety => {
+      const varietyData = data.filter(d => d['Variety'] === variety);
+      const prices = varietyData.map(r => Number(r['Price Four Star'] || 0)).filter(p => p > 0);
+      const avgPrice = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
+      return { variety, avgPrice };
+    }).sort((a, b) => b.avgPrice - a.avgPrice);
+    
+    if (varietyPrices[0] && varietyPrices[0].avgPrice > 0) {
+      insights.push(`${varietyPrices[0].variety} commands the highest average price ($${varietyPrices[0].avgPrice.toFixed(2)}) → premium variety positioning`);
+    }
+    
+    insights.push(''); // Empty line separator
+    
+    // 📉 LOW PRICE / COMMODITY PATTERNS
+    insights.push('📉 Low Price / Commodity Patterns');
+    
+    // Low price exporters
+    analysisData.forEach(exporterData => {
+      if (!exporterData || !exporterData.topRetailers || exporterData.topRetailers.length === 0) return;
+      const avgExporterPrice = exporterData.topRetailers.reduce((sum, r) => sum + r.avgPrice, 0) / exporterData.topRetailers.length;
+      if (avgExporterPrice < avgMarketPrice * 0.8 && avgExporterPrice > 0) { // 20% below market
+        insights.push(`${exporterData.exporter} has below-average prices ($${avgExporterPrice.toFixed(2)}), indicating possible commodity positioning`);
+      }
+    });
+    
+    // Low price retailers (≤$10)
+    allRetailers.forEach(retailer => {
+      const retailerData = data.filter(d => d['Retailer Name'] === retailer);
+      const retailerPrices = retailerData.map(r => Number(r['Price Four Star'] || 0)).filter(p => p > 0);
+      if (retailerPrices.length > 0) {
+        const avgRetailerPrice = retailerPrices.reduce((a, b) => a + b, 0) / retailerPrices.length;
+        if (avgRetailerPrice <= 10) {
+          insights.push(`${retailer} consistently buys at lower prices ($${avgRetailerPrice.toFixed(2)}) → volume-focused approach`);
+        }
+      }
+    });
+    
+    insights.push(''); // Empty line separator
+    
+    // 📦 VOLUME & COVERAGE
+    insights.push('📦 Volume & Coverage');
+    
+    // Exporter market reach
+    analysisData.forEach(exporterData => {
+      const exporterRetailers = getUnique(data.filter(d => d['Exporter Clean'] === exporterData.exporter), 'Retailer Name').filter(Boolean);
+      if (exporterRetailers.length >= 5) { // Threshold for "high reach"
+        insights.push(`${exporterData.exporter} sold to ${exporterRetailers.length} unique retailers, indicating ${exporterRetailers.length >= 10 ? 'high' : 'moderate'} market reach`);
+      }
+    });
+    
+    // Retailer diversification
+    allRetailers.forEach(retailer => {
+      const retailerExporters = getUnique(data.filter(d => d['Retailer Name'] === retailer), 'Exporter Clean').filter(Boolean);
+      if (retailerExporters.length >= 3) { // Threshold for "diversification"
+        insights.push(`${retailer} sourced from ${retailerExporters.length} different exporters, indicating ${retailerExporters.length >= 5 ? 'high' : 'moderate'} diversification`);
+      }
+    });
+    
+    return insights;
+  };
+
+  const analysisData = getTopRetailersPerExporter();
+  const insights = generateInsights(analysisData);
+  
+  if (!data.length) return null;
+
+  return (
+    <div className="my-8 bg-[#F9F6F4] rounded-2xl p-6 shadow-md border border-[#98C1D9]">
+      <h3 className="text-2xl font-bold mb-6 text-[#293241]">� Exporter-Retailer Analysis</h3>
+      
+      {analysisData.map(exporterData => (
+        <div key={exporterData.exporter} className="mb-8 border-b border-gray-200 pb-6 last:border-b-0">
+          <div className="bg-[#E0FBFC] p-4 rounded-lg mb-4">
+            <h4 className="text-xl font-bold text-[#3D5A80] mb-2">{exporterData.exporter}</h4>
+            <p className="text-[#293241]">Total Sales: <span className="font-bold">${exporterData.totalSales.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span></p>
+          </div>
+          
+          {/* Top 5 Retailers - Full Width */}
+          <div className="mb-6">
+            <h5 className="text-lg font-bold text-[#293241] mb-3 text-green-800">🥇 Top 5 Retailers</h5>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border border-gray-300">
+                <thead className="bg-[#98C1D9] text-[#3D5A80]">
+                  <tr>
+                    <th className="border px-2 py-1 text-left">#</th>
+                    <th className="border px-2 py-1 text-left">Retailer</th>
+                    <th className="border px-2 py-1 text-right">Sales Amount</th>
+                    <th className="border px-2 py-1 text-right">% of Exporter</th>
+                    <th className="border px-2 py-1 text-right">Avg Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exporterData.topRetailers.map((retailer, idx) => (
+                    <tr key={retailer.retailer} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="border px-2 py-1 font-bold">{idx + 1}</td>
+                      <td className="border px-2 py-1">{retailer.retailer}</td>
+                      <td className="border px-2 py-1 text-right font-semibold">${retailer.totalSales.toLocaleString('en-US', { maximumFractionDigits: 0 })}</td>
+                      <td className="border px-2 py-1 text-right text-blue-700 font-bold">{retailer.percentage.toFixed(1)}%</td>
+                      <td className="border px-2 py-1 text-right">{formatNumber(retailer.avgPrice, true)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Bottom Row: Worst 5 (Left) and Odd Retailers (Right) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Worst 5 Retailers */}
+            <div>
+              <h5 className="text-lg font-bold text-[#293241] mb-3 text-red-800">📉 Worst 5 Retailers</h5>
+              <p className="text-xs text-gray-600 mb-2">(Sales Amount greater than $1)</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border border-gray-300">
+                  <thead className="bg-[#FEE2E2] text-[#991B1B]">
+                    <tr>
+                      <th className="border px-2 py-1 text-left">Retailer</th>
+                      <th className="border px-2 py-1 text-right">Sales Amount</th>
+                      <th className="border px-2 py-1 text-right">% of Exporter</th>
+                      <th className="border px-2 py-1 text-right">Avg Price</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {exporterData.worstRetailers.map((retailer, idx) => (
+                      <tr key={retailer.retailer} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="border px-2 py-1">{retailer.retailer}</td>
+                        <td className="border px-2 py-1 text-right font-semibold">${retailer.totalSales.toLocaleString('en-US', { maximumFractionDigits: 0 })}</td>
+                        <td className="border px-2 py-1 text-right text-red-700 font-bold">{retailer.percentage.toFixed(1)}%</td>
+                        <td className="border px-2 py-1 text-right">{formatNumber(retailer.avgPrice, true)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Odd Retailers */}
+            <div>
+              <h5 className="text-lg font-bold text-[#293241] mb-3 text-orange-800">🔍 Odd Retailers</h5>
+              <p className="text-xs text-gray-600 mb-2">(Sales Amount ≤ $0)</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border border-gray-300">
+                  <thead className="bg-[#FEF3C7] text-[#92400E]">
+                    <tr>
+                      <th className="border px-2 py-1 text-left">Retailer</th>
+                      <th className="border px-2 py-1 text-right">Sales Amount</th>
+                      <th className="border px-2 py-1 text-right">% of Exporter</th>
+                      <th className="border px-2 py-1 text-right">Avg Price</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {exporterData.oddRetailers.length > 0 ? (
+                      exporterData.oddRetailers.map((retailer, idx) => (
+                        <tr key={retailer.retailer} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <td className="border px-2 py-1">{retailer.retailer}</td>
+                          <td className="border px-2 py-1 text-right font-semibold">${retailer.totalSales.toLocaleString('en-US', { maximumFractionDigits: 0 })}</td>
+                          <td className="border px-2 py-1 text-right text-orange-700 font-bold">{retailer.percentage.toFixed(1)}%</td>
+                          <td className="border px-2 py-1 text-right">{formatNumber(retailer.avgPrice, true)}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="4" className="border px-2 py-3 text-center text-gray-500 italic">No odd retailers found</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Gráfico combinado de KPIs clave
+const CombinedKPIChart = ({ data, exporterFilter }) => {
+  const filteredData = exporterFilter === 'All' ? data : data.filter(d => d['Exporter Clean'] === exporterFilter);
+  const totalSales = filteredData.reduce((sum, r) => sum + Number(r['Sales Amount'] || 0), 0);
+  const totalQuantity = filteredData.reduce((sum, r) => sum + Number(r['Sale Quantity'] || 0), 0);
+  const avgPrice = filteredData.length ? filteredData.map(r => Number(r['Price Four Star'] || 0)).filter(Boolean).reduce((a, b) => a + b, 0) / filteredData.filter(r => Number(r['Price Four Star'])).length : 0;
+
+  const chartData = {
+    labels: ['Total Sales', 'Total Quantity', 'Avg. Four Star Price'],
+    datasets: [
+      {
+        label: 'Exporter Performance',
+        data: [totalSales, totalQuantity, avgPrice],
+        backgroundColor: ['#60a5fa', '#34d399', '#f472b6'],
+        borderColor: ['#3b82f6', '#10b981', '#ec4899'],
+        borderWidth: 2,
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top',
+      },
+      tooltip: {
+        callbacks: {
+          label: (tooltipItem) => {
+            const value = tooltipItem.raw;
+            return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+          },
+        },
+      },
+    },
+  };
+
+  return (
+    <div className="my-8">
+      <h3 className="font-bold mb-4 text-lg">📊 Combined KPI Chart</h3>
+      <Bar data={chartData} options={chartOptions} />
+    </div>
+  );
+};
 
 const SalesDetailReport = () => {
   const [salesData, setSalesData] = useState([]);
@@ -634,20 +1339,22 @@ const SalesDetailReport = () => {
   const [variety, setVariety] = useState('All');
   const [size, setSize] = useState('All');
 
-  // Refs para navegación
+  // Refs para navegación - nuevo orden
   const refs = {
     'KPIs': useRef(),
-    'Heatmap Retailer vs Variety': useRef(),
-    'Heatmap Exporter vs Retailer': useRef(),
-    'Ranking Retailers': useRef(),
-    'Ranking Exporters': useRef(),
+    'Key Insights': useRef(),
     'Exporter Comparator': useRef(),
+    'Sales by Variety': useRef(),
+    'Sales Timeline': useRef(),
     'Price History Retailer': useRef(),
     'Price History Exporter': useRef(),
-    'Parte 1: Filtros y Gráficos': useRef(),
-    'Parte 2: Sales by Variety': useRef(),
-    'Parte 3: Sales Timeline': useRef(),
-    'Parte 4: Price Alerts': useRef(),
+    'Heatmap Retailer vs Variety': useRef(),
+    'Heatmap Exporter vs Retailer': useRef(),
+    'Exporter-Retailer Analysis': useRef(),
+    'Ranking Retailers': useRef(),
+    'Ranking Exporters': useRef(),
+    'Sales by Retailer/Exporter/Variety/Size': useRef(),
+    'Price Alerts by Variety': useRef(),
   };
 
   // Carga de archivo CSV
@@ -679,71 +1386,101 @@ const SalesDetailReport = () => {
   const grouped = useMemo(() => groupBy(filtered, ['Variety', 'Packaging Style', 'Size']), [filtered]);
 
   return (
-    <div className="p-4 space-y-16">
-      <h1 className="text-4xl font-extrabold text-center mb-8" style={{ color: '#EE6C4D' }}>Sales Detail Report</h1>
-      <div className="mb-6">
-        <label className="block mb-2 font-semibold text-lg">Upload Sales_Detail_By_Lotid.csv</label>
-        <input type="file" accept=".csv" onChange={handleFile} className="border p-2 rounded" />
-      </div>
-      <SectionIndex refs={refs} />
-      <div ref={refs['KPIs']}><KPICards data={salesData} /></div>
-      <div ref={refs['Heatmap Retailer vs Variety']}><Heatmap data={salesData} rowKey="Retailer Name" colKey="Variety" valueKey="Price Four Star" agg="avg" title="Heatmap: Retailer vs Variety (Avg Price)" /></div>
-      <div ref={refs['Heatmap Exporter vs Retailer']}><Heatmap data={salesData} rowKey="Exporter Clean" colKey="Retailer Name" valueKey="Sales Amount" agg="sum" title="Heatmap: Exporter vs Retailer (Sales Amount)" /></div>
-      <div ref={refs['Ranking Retailers']}><RankingBar data={salesData} groupKey="Retailer Name" valueKey="Sales Amount" title="Top Retailers by Sales" /></div>
-      <div ref={refs['Ranking Exporters']}><RankingBar data={salesData} groupKey="Exporter Clean" valueKey="Sales Amount" title="Top Exporters by Sales" /></div>
-      <div ref={refs['Exporter Comparator']}><ExporterComparator data={salesData} exporters={exporters} /></div>
-      <div ref={refs['Price History Retailer']}><PriceHistory data={salesData} groupKey="Retailer Name" /></div>
-      <div ref={refs['Price History Exporter']}><PriceHistory data={salesData} groupKey="Exporter Clean" /></div>
-      <div ref={refs['Parte 1: Filtros y Gráficos']}>
-        {/* Parte 1: Filtros Exporter, Retailer, Variety, Size + gráfico, tabla y pie */}
-        <section>
-          <h2 className="text-xl font-bold mb-2">Sales by Retailer/Exporter/Variety/Size</h2>
-          <div className="flex gap-4 mb-2 flex-wrap">
-            <select value={exporter} onChange={e => setExporter(e.target.value)} className="border p-1 rounded">
-              {exporters.map(e => <option key={e}>{e}</option>)}
-            </select>
-            <select value={retailer} onChange={e => setRetailer(e.target.value)} className="border p-1 rounded">
-              {retailers.map(r => <option key={r}>{r}</option>)}
-            </select>
-            <select value={variety} onChange={e => setVariety(e.target.value)} className="border p-1 rounded">
-              {varieties.map(v => <option key={v}>{v}</option>)}
-            </select>
-            <select value={size} onChange={e => setSize(e.target.value)} className="border p-1 rounded">
-              {sizes.map(s => <option key={s}>{s}</option>)}
-            </select>
-          </div>
-          <Bar data={getChartData(filtered, 'Retailer Name', 'Sale Quantity', 'Price Four Star')} options={chartOptions} />
-          <SortableTable data={filtered} />
-          <div className="w-[420px] mx-auto my-4">
-            <Pie data={getPieData(filtered, 'Retailer Name', 'Sales Amount')} options={{ plugins: { legend: { position: 'bottom' }, datalabels: { display: true } }, aspectRatio: 1 }} />
-          </div>
-        </section>
-      </div>
-      <div ref={refs['Parte 2: Sales by Variety']}>
-        {/* Parte 2: Sales by Variety */}
-        <section>
-          <h2 className="text-xl font-bold mb-2">Sales by Variety</h2>
-          <Bar data={getVarietyChartData(salesData)} options={chartOptions} />
-        </section>
-      </div>
-      <div ref={refs['Parte 3: Sales Timeline']}>
-        {/* Parte 3: Sales Timeline */}
-        <section>
-          <h2 className="text-xl font-bold mb-2">Sales Timeline</h2>
-          <Line data={getTimelineChartData(salesData)} options={chartOptions} />
-        </section>
-      </div>
-      <div ref={refs['Parte 4: Price Alerts']}>
-        {/* Parte 4: Price Alerts con filtro Variety */}
-        <section>
-          <h2 className="text-xl font-bold mb-2">Price Alerts by Variety</h2>
-          <div className="flex gap-4 mb-2">
-            <select value={variety} onChange={e => setVariety(e.target.value)} className="border p-1 rounded">
-              {varieties.map(v => <option key={v}>{v}</option>)}
-            </select>
-          </div>
-          <PriceAlerts data={filterData(salesData, { Variety: variety })} threshold={0.15} />
-        </section>
+    <div className="min-h-screen bg-[#F9F6F4] w-full m-0 p-0">
+      <div className="p-6 space-y-16 w-full max-w-none m-0">
+        <h1 className="text-4xl font-extrabold text-center mb-8 text-[#EE6C4D]">Sales Detail Report</h1>
+        <div className="mb-6">
+          <label className="block mb-2 font-semibold text-lg text-[#3D5A80]">Upload Sales_Detail_By_Lotid.csv</label>
+          <input type="file" accept=".csv" onChange={handleFile} className="border p-2 rounded border-[#98C1D9] bg-white" />
+        </div>
+        
+        {/* 1. Indices */}
+        <SectionIndex refs={refs} />
+        
+        {/* 2. KPIs */}
+        <div ref={refs['KPIs']}><KPICards data={salesData} /></div>
+        
+        {/* 3. Key Insights */}
+        <div ref={refs['Key Insights']}><KeyMarketInsights data={salesData} /></div>
+        
+        {/* 4. Exporter-Retailer Analysis */}
+        <div ref={refs['Exporter-Retailer Analysis']}><ExporterRetailerAnalysis data={salesData} /></div>
+        
+        {/* 5. Exporter Comparator */}
+        <div ref={refs['Exporter Comparator']}><ExporterComparator data={salesData} exporters={exporters} /></div>
+        
+        {/* 6. Sales by Variety */}
+        <div ref={refs['Sales by Variety']}>
+          <section className="bg-[#F9F6F4] rounded-2xl p-6 shadow-md">
+            <h2 className="text-xl font-bold mb-2 text-[#293241]">Sales by Variety</h2>
+            <Bar data={getVarietyChartData(salesData)} options={chartOptions} />
+          </section>
+        </div>
+        
+        {/* 7. Sales Timeline */}
+        <div ref={refs['Sales Timeline']}>
+          <section className="bg-[#F9F6F4] rounded-2xl p-6 shadow-md">
+            <h2 className="text-xl font-bold mb-2 text-[#293241]">Sales Timeline</h2>
+            <Line data={getTimelineChartData(salesData)} options={chartOptions} />
+          </section>
+        </div>
+        
+        {/* 8. Price History (Retailer Name) */}
+        <div ref={refs['Price History Retailer']}><PriceHistory data={salesData} groupKey="Retailer Name" /></div>
+        
+        {/* 9. Price History (Exporter Clean) */}
+        <div ref={refs['Price History Exporter']}><PriceHistory data={salesData} groupKey="Exporter Clean" /></div>
+        
+        {/* 10. Heatmap: Retailer vs Variety (Avg Price) */}
+        <div ref={refs['Heatmap Retailer vs Variety']}><Heatmap data={salesData} rowKey="Retailer Name" colKey="Variety" valueKey="Price Four Star" agg="avg" title="Heatmap: Retailer vs Variety (Avg Price)" /></div>
+        
+        {/* 11. Heatmap: Exporter vs Retailer (Sales Amount) */}
+        <div ref={refs['Heatmap Exporter vs Retailer']}><Heatmap data={salesData} rowKey="Exporter Clean" colKey="Retailer Name" valueKey="Sales Amount" agg="sum" title="Heatmap: Exporter vs Retailer (Sales Amount)" /></div>
+        
+        {/* 12. Top Retailers by Sales */}
+        <div ref={refs['Ranking Retailers']}><RankingBar data={salesData} groupKey="Retailer Name" valueKey="Sales Amount" title="Top Retailers by Sales" /></div>
+        
+        {/* 13. Top Exporters by Sales */}
+        <div ref={refs['Ranking Exporters']}><RankingBar data={salesData} groupKey="Exporter Clean" valueKey="Sales Amount" title="Top Exporters by Sales" /></div>
+        
+        {/* 14. Sales by Retailer/Exporter/Variety/Size */}
+        <div ref={refs['Sales by Retailer/Exporter/Variety/Size']}>
+          <section className="bg-[#F9F6F4] rounded-2xl p-6 shadow-md">
+            <h2 className="text-xl font-bold mb-2 text-[#293241]">Sales by Retailer/Exporter/Variety/Size</h2>
+            <div className="flex gap-4 mb-2 flex-wrap">
+              <select value={exporter} onChange={e => setExporter(e.target.value)} className="border p-1 rounded border-[#98C1D9]">
+                {exporters.map(e => <option key={e}>{e}</option>)}
+              </select>
+              <select value={retailer} onChange={e => setRetailer(e.target.value)} className="border p-1 rounded border-[#98C1D9]">
+                {retailers.map(r => <option key={r}>{r}</option>)}
+              </select>
+              <select value={variety} onChange={e => setVariety(e.target.value)} className="border p-1 rounded border-[#98C1D9]">
+                {varieties.map(v => <option key={v}>{v}</option>)}
+              </select>
+              <select value={size} onChange={e => setSize(e.target.value)} className="border p-1 rounded border-[#98C1D9]">
+                {sizes.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+            <Bar data={getChartData(filtered, 'Retailer Name', 'Sale Quantity', 'Price Four Star')} options={chartOptions} />
+            <SortableTable data={filtered} />
+            <div className="w-[420px] mx-auto my-4">
+              <Pie data={getPieData(filtered, 'Retailer Name', 'Sales Amount')} options={{ plugins: { legend: { position: 'bottom' }, datalabels: { display: true } }, aspectRatio: 1 }} />
+            </div>
+          </section>
+        </div>
+        
+        {/* 15. Price Alerts by Variety */}
+        <div ref={refs['Price Alerts by Variety']}>
+          <section className="bg-[#F9F6F4] rounded-2xl p-6 shadow-md">
+            <h2 className="text-xl font-bold mb-2 text-[#293241]">Price Alerts by Variety</h2>
+            <div className="flex gap-4 mb-2">
+              <select value={variety} onChange={e => setVariety(e.target.value)} className="border p-1 rounded border-[#98C1D9]">
+                {varieties.map(v => <option key={v}>{v}</option>)}
+              </select>
+            </div>
+            <PriceAlerts data={filterData(salesData, { Variety: variety })} threshold={0.15} />
+          </section>
+        </div>
       </div>
     </div>
   );
