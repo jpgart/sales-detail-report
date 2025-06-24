@@ -1,79 +1,101 @@
-# Famus Report Analysis
+# Famus Analytics Workspace
 
-This project is designed for processing sales data and generating comprehensive reports related to grape shipments. It utilizes Python libraries such as Pandas and NumPy for data manipulation and analysis.
+This workspace contains the unified Famus analytics application that combines multiple interactive reports into a single, cohesive dashboard.
 
-## Project Structure
+## 🏗️ **Project Structure**
 
 ```
-famus-report-analysis
-├── src
-│   ├── __init__.py          # Package initialization
-│   ├── main.py              # Main script for processing sales data
-│   ├── data_processing.py    # Functions for data cleaning and preprocessing
-│   ├── analysis.py          # Functions for data analysis and reporting
-│   ├── qc.py                # Quality control checks for data integrity
-│   └── utils.py             # Utility functions used across the project
-├── data
-│   └── JP Famus Report Original 05.15.25 - FAMOUS LOT DETAIL REPORT SA GRAPES 24-25.csv # Input data file
-├── notebooks
-│   └── exploratory_analysis.ipynb # Jupyter notebook for exploratory data analysis
-├── tests
-│   ├── __init__.py          # Package initialization for tests
-│   ├── test_data_processing.py # Unit tests for data processing functions
-│   ├── test_analysis.py      # Unit tests for analysis functions
-│   └── test_qc.py           # Unit tests for quality control functions
-├── .gitignore                # Files and directories to ignore in version control
-├── requirements.txt          # List of dependencies required for the project
-├── README.md                 # Project documentation
-└── famus-report-analysis.code-workspace # Workspace configuration file
+famus-report-analysis/
+├── famus-unified-reports/       # 🚀 Main unified application
+│   ├── src/                     # Source code
+│   ├── dist/                    # Production build
+│   ├── public/                  # Static assets
+│   └── docs/                    # Documentation
+├── docs/                        # Workspace documentation
+│   ├── TECH_STANDARDS.md        # Technical standards
+│   ├── IMPLEMENTATION_COMPLETE.md # Implementation summary
+│   └── PROJECT_TEMPLATE.md      # Project template
+└── README.md                    # This file
 ```
 
-## Setup Instructions
+## 🚀 **Quick Start**
 
-1. **Clone the Repository**
-   Clone this repository to your local machine using:
-   ```
-   git clone <repository-url>
-   ```
+### Navigate to the unified application:
+```bash
+cd famus-unified-reports
+```
 
-2. **Create a Virtual Environment**
-   Navigate to the project directory and create a virtual environment:
-   ```
-   python -m venv venv
-   ```
+### Install dependencies:
+```bash
+npm install
+```
 
-3. **Activate the Virtual Environment**
-   Activate the virtual environment:
-   - On Windows:
-     ```
-     venv\Scripts\activate
-     ```
-   - On macOS/Linux:
-     ```
-     source venv/bin/activate
-     ```
+### Start development server:
+```bash
+npm run dev
+```
 
-4. **Install Dependencies**
-   Install the required packages using pip:
-   ```
-   pip install -r requirements.txt
-   ```
+### Build for production:
+```bash
+npm run build
+```
 
-5. **Run the Main Script**
-   Execute the main script to process the sales data:
-   ```
-   python src/main.py
-   ```
+### Deploy to GitHub Pages:
+```bash
+npm run deploy
+```
 
-## Usage
+## 📊 **Available Reports**
 
-- The main script (`src/main.py`) will read the input CSV file, perform data cleaning, and generate various reports based on the analysis functions defined in the project.
-- Explore the Jupyter notebook in the `notebooks` directory for exploratory data analysis and visualization.
+The unified application includes:
 
-## Contribution
+1. **Sales Detail Report** - Comprehensive sales analytics with interactive visualizations
+2. **Cost Consistency Report** - Cost analysis and consistency tracking across exporters
 
-Contributions are welcome! Please submit a pull request or open an issue for any enhancements or bug fixes.
+## 🛠️ **Technology Stack**
 
-## License
+- **React 18** - Modern frontend framework
+- **Chart.js 4.5** - Interactive data visualization
+- **Tailwind CSS 3** - Utility-first styling
+- **Webpack 5** - Optimized bundling
+- **chartjs-plugin-zoom** - Interactive chart features
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+## 📚 **Documentation**
+
+- **Technical Standards**: `TECH_STANDARDS.md`
+- **Implementation Guide**: `IMPLEMENTATION_COMPLETE.md`
+- **Project Template**: `PROJECT_TEMPLATE.md`
+
+## 🎯 **Features**
+
+- ✅ Unified navigation between reports
+- ✅ Consistent design system
+- ✅ Interactive charts with zoom/pan
+- ✅ Responsive design for all devices
+- ✅ Optimized performance with code splitting
+- ✅ Embedded data for security
+
+## 📱 **Supported Devices**
+
+- Desktop (1024px+)
+- Tablet (768px - 1023px)  
+- Mobile (320px - 767px)
+
+## 🔒 **Security**
+
+- All sensitive data is embedded in JavaScript modules
+- No CSV files exposed in production
+- Optimized and minified production builds
+
+## 📈 **Performance**
+
+- Code splitting for optimal loading
+- Vendor chunk separation
+- Asset optimization
+- Bundle size analysis available
+
+---
+
+**Version**: 2.0.0  
+**Last Updated**: June 19, 2025  
+**Maintainer**: JP
